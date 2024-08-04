@@ -1,56 +1,55 @@
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from telegram import Update
+import logging
+from telegram import Update, ForceReply
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from text_generation_api import Endpoint
 
-# Инициализация модели и токенизатора
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = AutoModelForCausalLM.from_pretrained("OuteAI/Lite-Oute-1-65M-Instruct").to(device)
-tokenizer = AutoTokenizer.from_pretrained("OuteAI/Lite-Oute-1-65M-Instruct")
+# Initialize the Endpoint
+tga = Endpoint("http://<host>:<port>")
 
-def generate_response(message: str, temperature: float = 0.4, repetition_penalty: float = 1.12) -> str:
-    # Apply the chat template and convert to PyTorch tensors
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": message}
-    ]
-    input_ids = tokenizer.apply_chat_template(
-        messages, add_generation_prompt=True, return_tensors="pt"
-    ).to(device)
-    # Generate the response
-    output = model.generate(
-        input_ids,
-        max_length=512,
-        temperature=temperature,
-        repetition_penalty=repetition_penalty,
-        do_sample=True
-    ) 
-    # Decode the generated output
-    generated_text = tokenizer.decode(output[0], skip_special_tokens=True)
-    return generated_text
+# Enable logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
-# Обработчик команды /start
+logger = logging.getLogger(__name__)
+
+# Define the start command
 def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Hi! I am your text generation bot. Send me a message and I will respond.')
+    update.message.reply_text('Hi! Send me a prompt, and I will generate text for you.')
 
-# Обработчик текстовых сообщений
-def handle_message(update: Update, context: CallbackContext) -> None:
-    user_message = update.message.text
-    response = generate_response(user_message)
-    update.message.reply_text(response)
+# Define the help command
+def help_command(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text('Send any text, and I will complete it using a text generation model.')
 
-def main():
-    # Вставьте сюда ваш токен, который вы получили от BotFather
-    token = '6247500066:AAGdftkEye7peoG0QSpu3MmKC0795Yr4bpU'
+# Define the echo command that processes user messages
+def generate_text(update: Update, context: CallbackContext) -> None:
+    prompt = update.message.text
+    result = tga.generate(
+        model="gpt2",  # You can specify other models here
+        prompt=prompt
+    )
+    update.message.reply_text(result['generated_text'])
 
-    updater = Updater(token, use_context=True)
+def main() -> None:
+    """Start the bot."""
+    # Create the Updater and pass it your bot's token.
+    updater = Updater("6247500066:AAGdftkEye7peoG0QSpu3MmKC0795Yr4bpU")
 
-    dp = updater.dispatcher
+    # Get the dispatcher to register handlers
+    dispatcher = updater.dispatcher
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    # on different commands - answer in Telegram
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("help", help_command))
 
+    # on non command i.e message - generate text
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, generate_text))
+
+    # Start the Bot
     updater.start_polling()
+
+    # Run the bot until you press Ctrl-C or the process receives SIGINT, SIGTERM or SIGABRT
     updater.idle()
 
 if __name__ == '__main__':
