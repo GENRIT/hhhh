@@ -41,7 +41,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
 def main():
     # Вставьте сюда ваш токен, который вы получили от BotFather
-    token = 'YOUR_TELEGRAM_BOT_TOKEN_HERE'
+    token = '6247500066:AAGdftkEye7peoG0QSpu3MmKC0795Yr4bpU'
 
     updater = Updater(token, use_context=True)
 
