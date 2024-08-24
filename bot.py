@@ -1,56 +1,44 @@
-import logging
-from telegram import Update, ForceReply
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-from text_generation_api import Endpoint
+import telebot
+import pyttsx3
+from pydub import AudioSegment
+from pydub.playback import play
 
-# Initialize the Endpoint
-tga = Endpoint("http://<host>:<port>")
+# Создаем экземпляр бота
+bot = telebot.TeleBot('7208468509:AAEdWRPRQ3iA-rXo5P9AylhVo89ziS5N02c')
 
-# Enable logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+# Настройка pyttsx3
+engine = pyttsx3.init()
 
-logger = logging.getLogger(__name__)
+# Функция для настройки голоса
+def setup_voice(engine):
+    voices = engine.getProperty('voices')
+    # Ищем мужской голос (настраиваем по вашему усмотрению)
+    for voice in voices:
+        if 'male' in voice.name:
+            engine.setProperty('voice', voice.id)
+            break
+    engine.setProperty('rate', 150)  # Скорость речи
+    engine.setProperty('volume', 1)  # Громкость
 
-# Define the start command
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Hi! Send me a prompt, and I will generate text for you.')
+setup_voice(engine)
 
-# Define the help command
-def help_command(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Send any text, and I will complete it using a text generation model.')
+# Обработчик сообщений
+@bot.message_handler(content_types=['text'])
+def handle_text(message):
+    text = message.text
+    if len(text) > 500:  # Ограничиваем длину текста
+        bot.send_message(message.chat.id, "Текст слишком длинный, сократите его.")
+        return
 
-# Define the echo command that processes user messages
-def generate_text(update: Update, context: CallbackContext) -> None:
-    prompt = update.message.text
-    result = tga.generate(
-        model="gpt2",  # You can specify other models here
-        prompt=prompt
-    )
-    update.message.reply_text(result['generated_text'])
+    # Сгенерировать голосовое сообщение
+    engine.save_to_file(text, 'voice.mp3')
+    engine.runAndWait()
 
-def main() -> None:
-    """Start the bot."""
-    # Create the Updater and pass it your bot's token.
-    updater = Updater("6247500066:AAGdftkEye7peoG0QSpu3MmKC0795Yr4bpU")
+    # Отправка голосового сообщения пользователю
+    voice = AudioSegment.from_file('voice.mp3', format='mp3')
+    voice.export('voice.ogg', format='ogg', codec='libopus')
+    with open('voice.ogg', 'rb') as voice_file:
+        bot.send_voice(message.chat.id, voice_file)
 
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
-
-    # on different commands - answer in Telegram
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("help", help_command))
-
-    # on non command i.e message - generate text
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, generate_text))
-
-    # Start the Bot
-    updater.start_polling()
-
-    # Run the bot until you press Ctrl-C or the process receives SIGINT, SIGTERM or SIGABRT
-    updater.idle()
-
-if __name__ == '__main__':
-    main()
+# Запуск бота
+bot.polling(none_stop=True)
