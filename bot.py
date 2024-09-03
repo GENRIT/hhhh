@@ -2,7 +2,7 @@ import telebot
 from telebot import types
 import os
 
-API_TOKEN = '7240803057:AAG7xMLwBKljEiRpjN7EYEVfANX9BGthUCI'
+API_TOKEN = '6729103305:AAHPEAbNT1EaMGsFl33zbYKbDLjYCFefizY'
 OWNER_CHAT_ID = 1420106372
 
 bot = telebot.TeleBot(API_TOKEN)
